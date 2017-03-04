@@ -93,13 +93,21 @@ namespace {
 				}
 				
 				// case 3: memroy-related
-				if (op == "alloca" || op == "load" || op == "getelementptr") {
+				if (op == "alloca" || op == "load" || op == "getelementptr" || op == "select") {
 					temp->defs.insert(index);
 				}
 
 				// case 4: phi instruction
-				if (op == "phi" || op == "select") {
-					temp->defs.insert(index);
+				if (op == "phi") {
+					while (true) {
+						temp->defs.insert(index);
+						++index;
+						if (this->IndexToInstr.find(index) == this->IndexToInstr.end())
+							break;
+						Instruction *J = this->IndexToInstr[index];
+						if (string(J->getOpcodeName()) != "phi")
+							break;
+					}
 				}
 
 				// case 5: no result
