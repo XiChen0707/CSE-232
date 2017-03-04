@@ -92,12 +92,12 @@ namespace {
 					temp->defs.insert(index);
 				}
 				
-				// case 3: memroy-related
+				// case 4: other instructions with result
 				if (op == "alloca" || op == "load" || op == "getelementptr" || op == "select") {
 					temp->defs.insert(index);
 				}
 
-				// case 4: phi instruction
+				// case 5: phi instruction
 				if (op == "phi") {
 					while (true) {
 						temp->defs.insert(index);
@@ -110,7 +110,7 @@ namespace {
 					}
 				}
 
-				// case 5: no result
+				// case 6: instruction without result
 				if (op == "br" || op == "switch" || op == "store");
 
 				for (int i = 0; i < Infos.size(); ++i)
