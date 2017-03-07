@@ -56,6 +56,8 @@ namespace {
 		public:
 			LivenessAnalysis(Info &bottom, Info &initialState):
 				DataFlowAnalysis<Info, Direction>::DataFlowAnalysis(bottom, initialState) {
+				for (auto iter = this->IndexToInstr.begin(); iter != this->IndexToInstr.end(); ++iter)
+					errs() << iter->first << " " << iter->second->getOpcodeName() << "\n";
 			}
 
 			~LivenessAnalysis() {
@@ -78,6 +80,7 @@ namespace {
 				unsigned index = this->InstrToIndex[I];
 				string op = I->getOpcodeName();
 
+				// join incoming information
 				Info *temp = new Info();
 				for (unsigned src : IncomingEdges) {
 					pair<unsigned, unsigned> e = make_pair(src, index);
@@ -91,7 +94,6 @@ namespace {
 					addOperandsInfo(I, temp);
 				}
 			
-
 				// case 2: binary bitwise operator
 				else if (op == "shl" || op == "lshr" || op == "ashr" || op == "and" || op == "or" || op == "xor") {	
 					temp->lives.erase(index);
@@ -112,38 +114,46 @@ namespace {
 				
 				// case 5: phi instruction
 				else if (op == "phi") {
-					Instruction *J = I;
+					// 5.1 find the range of "phi" instructions
+					int start = index, end = index;
 					while (true) {
-						temp->lives.erase(index);
+						++end;
+						if (this->IndexToInstr.find(end) == this->IndexToInstr.end() ||
+								this->IndexToInstr[end] == nullptr ||
+								string(this->IndexToInstr[end]->getOpcodeName()) != "phi")
+							break;
+					}
+					
+					// 5.2 remove all "def" variables
+					for (int idx = start; idx < end; ++idx) {
+						temp->lives.erase(idx);
+						for (int j = 0; j < Infos.size(); ++j)
+							Infos[j]->lives.erase(idx);
+					}
+					
+					// 5.3 add "use" variables only for corresponding path
+					for (int idx = start; idx < end; ++idx) {
+						Instruction *J = this->IndexToInstr[idx];
 						unsigned num = J->getNumOperands();
 						for (int j = 0; j < Infos.size(); ++j) {
-							// erase result from all output
-							Infos[j]->lives.erase(index);
-
+							int output = OutgoingEdges[j];
 							// for each output, only add variable coming from it
 							for (int i = 0; i < num; ++i) {
-								unsigned output = OutgoingEdges[j];
 								Instruction *var = (Instruction *)J->getOperand(i);
 								if (this->IndexToInstr.find(output) != this->IndexToInstr.end() && 
-										this->IndexToInstr[output]->getParent() == var->getParent() &&	// same label
-										this->InstrToIndex.find(var) != this->InstrToIndex.end()) {
+										this->IndexToInstr[output] != nullptr &&
+										this->InstrToIndex.find(var) != this->InstrToIndex.end() &&
+										this->IndexToInstr[output]->getParent() == var->getParent()) { // same label
 									Infos[j]->lives.insert(this->InstrToIndex[var]);
 								}
 							}
 						}
-						++index;
-						if (this->IndexToInstr.find(index) == this->IndexToInstr.end())
-							break;
-						J = this->IndexToInstr[index];
-						if (string(J->getOpcodeName()) != "phi")
-							break;
 					}
 				}
 
 				// case 6: instructions without result
-				else if (op == "br" || op == "switch" || op == "store" || op == "call" || op == "ret") {
+				else
 					addOperandsInfo(I, temp);
-				}
 
 				for (int i = 0; i < Infos.size(); ++i)
 					Infos[i]->lives.insert(temp->lives.begin(), temp->lives.end());
