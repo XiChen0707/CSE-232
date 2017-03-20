@@ -136,15 +136,17 @@ namespace {
 
 				// case 4: load			OUT = IN + {Ri -> Y | Rp -> X in IN and X -> Y in IN}
 				else if (op == "load") {
-					string ptr = "R" + to_string(index);
-					Instruction *var = (Instruction *)I->getOperand(0);
-					if (this->InstrToIndex.count(var)) {
-						unsigned p = this->InstrToIndex[var];
-						string rp = "R" + to_string(p);
-						set<string> mems;
-						for (string x : temp->pointdict[rp])
-							mems.insert(temp->pointdict[x].begin(), temp->pointdict[x].end());
-						temp->pointdict[ptr].insert(mems.begin(), mems.end());
+					if (I->getType()->isPointerTy()) {
+						string ptr = "R" + to_string(index);
+						Instruction *var = (Instruction *)I->getOperand(0);
+						if (this->InstrToIndex.count(var)) {
+							unsigned p = this->InstrToIndex[var];
+							string rp = "R" + to_string(p);
+							set<string> mems;
+							for (string x : temp->pointdict[rp])
+								mems.insert(temp->pointdict[x].begin(), temp->pointdict[x].end());
+							temp->pointdict[ptr].insert(mems.begin(), mems.end());
+						}
 					}
 				}
 
